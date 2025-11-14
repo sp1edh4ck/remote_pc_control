@@ -1,3 +1,4 @@
+import ctypes
 import os
 import platform
 
@@ -20,3 +21,7 @@ def reboot():
         os.system("sudo reboot")
     else:
         raise NotImplementedError("Операционная система не поддерживается")
+
+
+def lock():
+    ctypes.windll.user32.LockWorkStation()

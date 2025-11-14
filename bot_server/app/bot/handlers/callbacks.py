@@ -2,8 +2,9 @@ import json
 
 from aiogram import F, Router
 from aiogram.types import CallbackQuery
-from app.routes.websocket import connected_clients
+
 from app.bot.keyboards import inline_markups as kb
+from app.routes.websocket import connected_clients
 
 router = Router()
 
@@ -24,10 +25,9 @@ async def execute_command(callback: CallbackQuery):
     client_id = parts[2]
     client = connected_clients.get(client_id)
     if not client:
-        await callback.answer("❌ ПК не подключен", show_alert=True)
-        return
+        return await callback.answer("❌ ПК не подключен", show_alert=True)
     try:
-        await client["websocket"].send_text(json.dumps({"type": cmd}))
+        await client.send_json({"type": cmd})
         await callback.answer(f"✅ Команда {cmd} отправлена на {client_id}")
     except Exception as e:
         await callback.answer(f"❌ Ошибка: {e}", show_alert=True)

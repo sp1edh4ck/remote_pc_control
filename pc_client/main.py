@@ -7,11 +7,19 @@ import uuid
 
 import websockets
 from utils.logger import setup_logger
+from utils import system
 
-logger = setup_logger()
+logger = setup_logger(log=True)
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 DEFAULT_SERVER_URL = "ws://127.0.0.1:1337/ws/"
+
+COMMANDS = {
+    "shutdown": system.shutdown,
+    "reboot": system.reboot,
+    "lock": system.lock,
+    # "screenshot": system.screenshot
+}
 
 
 def get_system_uuid():
@@ -67,10 +75,21 @@ async def handle_server_messages(websocket):
         except json.JSONDecodeError:
             logger.warning(f"Некорректный JSON: {message}")
             continue
-        msg_type = data.get("type")
-        if msg_type in ["pong", "ping"]:
+        cmd = data.get("type")
+        if cmd in ["pong", "ping"]:
             continue
-        logger.info(f"Сообщение от сервера: {data}")
+        logger.info(f"Команда от сервера: {cmd}")
+        func = COMMANDS.get(cmd)
+        if func:
+            try:
+                result = func()
+                logger.info(f"Команда выполнена: {cmd}")
+                await websocket.send(json.dumps({"type": "result", "status": "ok", "cmd": cmd}))
+            except Exception as e:
+                logger.error(f"Ошибка выполнения команды {cmd}: {e}")
+                await websocket.send(json.dumps({"type": "result", "status": "error", "cmd": cmd}))
+        else:
+            logger.warning(f"Неизвестная команда: {cmd}")
 
 
 async def main():

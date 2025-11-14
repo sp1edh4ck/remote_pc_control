@@ -20,6 +20,7 @@ _admin_ids_raw = os.getenv("ADMIN_IDS", "")
 ADMIN_IDS = [
     int(i.strip()) for i in re.split(r"[,\s]+", _admin_ids_raw) if i.strip().isdigit()
 ]
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 if not BOT_TOKEN:
     raise ValueError("❌ BOT_TOKEN не найден в .env — добавь его перед запуском.")
