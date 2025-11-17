@@ -1,83 +1,131 @@
+import hashlib
+import logging
+import os
 import platform
 import subprocess
-import hashlib
-import requests
-import os
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
 
-INFO_URL = "http://127.0.0.1:1337/client_info"
-DOWNLOAD_URL = "http://127.0.0.1:1337/download_client"
+import requests
+
+SERVER_INFO_URL = "http://127.0.0.1:1337/client_info"
+SERVER_DOWNLOAD_URL = "http://127.0.0.1:1337/download_client"
 SAVE_PATH = "pc_client.exe"
+MAX_RETRIES = 5
+
+
+def setup_logger(log=False):
+    logger = logging.getLogger("loader")
+    logger.setLevel(logging.INFO)
+    if not log:
+        logger.addHandler(logging.NullHandler())
+        return logger
+    formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s")
+    file_handler = logging.FileHandler(f"client_{datetime.now().strftime('%Y%m%d')}.log", encoding="utf-8")
+    file_handler.setFormatter(formatter)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    return logger
+
+logger = setup_logger(True)
 
 
 def compute_file_hash(path):
-    sha256 = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            sha256.update(chunk)
-    return sha256.hexdigest()
+    try:
+        sha256 = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                sha256.update(chunk)
+        return sha256.hexdigest()
+    except Exception as e:
+        logger.error(f'Ошибка вычисления хэша: {e}')
+        return None
+
+
+def safe_request(url):
+    """Безопасный запрос с повторными попытками."""
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            return requests.get(url, timeout=5)
+        except Exception as e:
+            logger.error(f'Не удалось подключиться ({attempt}/{MAX_RETRIES}) — {e}')
+            time.sleep(2)
+    return None
+
+
+def get_client_info():
+    logger.info('Получение информации о клиенте...')
+    r = safe_request(SERVER_INFO_URL)
+    if not r:
+        logger.error('Сервер недоступен.')
+        return None
+    try:
+        info = r.json()
+    except Exception:
+        logger.error('Сервер вернул некорректные данные.')
+        return None
+    if "error" in info:
+        logger.error(f'Ошибка сервера: {info["error"]}')
+        return None
+    required = {"filename", "hash", "size"}
+    if not all(k in info for k in required):
+        logger.error('Ответ сервера неполный.')
+        return None
+    return info
 
 
 def download_client():
-    print("⏳ Получение информации о клиенте...")
+    info = get_client_info()
+    if not info:
+        return False
+    server_hash = info["hash"]
+    server_size = info["size"]
+    logger.info('Скачивание клиента...')
+    r = safe_request(SERVER_DOWNLOAD_URL)
+    if not r or r.status_code != 200:
+        logger.error('Не удалось скачать файл.')
+        return False
     try:
-        info = requests.get(INFO_URL, timeout=5).json()
-    except Exception:
-        print("❌ Сервер недоступен")
+        with open(SAVE_PATH, "wb") as f:
+            f.write(r.content)
+    except Exception as e:
+        logger.error(f'Не удалось сохранить файл: {e}')
         return False
-
-    if "error" in info:
-        print("❌ Ошибка сервера:", info["error"])
-        return False
-
-    expected_hash = info["hash"]
-    expected_size = info["size"]
-
-    print("📄 Ожидаемый размер:", expected_size, "байт")
-    print("🔐 Ожидаемый хэш:", expected_hash)
-
-    print("⏳ Скачивание файла...")
-    try:
-        r = requests.get(DOWNLOAD_URL, timeout=10)
-    except Exception:
-        print("❌ Ошибка сетевого подключения")
-        return False
-
-    if r.status_code != 200:
-        print("❌ Скачивание не удалось:", r.text)
-        return False
-
-    with open(SAVE_PATH, "wb") as f:
-        f.write(r.content)
-
     local_size = os.path.getsize(SAVE_PATH)
+    if local_size != server_size:
+        logger.error(f'Размер не совпадает ({local_size} vs {server_size}).')
+        return False
     local_hash = compute_file_hash(SAVE_PATH)
-
-    print(f"📌 Файл сохранён: {SAVE_PATH}")
-    print(f"📦 Размер: {local_size} байт")
-    print(f"🛡️ Хэш: {local_hash}")
-
-    if local_size != expected_size:
-        print("❌ Размер не совпадает! Файл повреждён.")
+    if not local_hash or local_hash != server_hash:
+        logger.error('Хэш не совпадает — файл повреждён или изменён.')
         return False
-
-    if local_hash != expected_hash:
-        print("❌ Хэш не совпадает! Файл подменён или битый.")
-        return False
-
-    print("✔️ Проверка файла пройдена")
+    logger.info('Файл успешно скачан и проверен.')
     return True
 
 
 def run_client():
-    print("🚀 Запуск клиента...")
-    if platform.system() == "Windows":
-        subprocess.Popen([SAVE_PATH], shell=True)
-    else:
-        subprocess.Popen(["chmod", "+x", SAVE_PATH])
-        subprocess.Popen([f"./{SAVE_PATH}"])
-    print("✅ Клиент запущен.")
-
+    logger.info('Запуск клиента...')
+    try:
+        system = platform.system()
+        file = Path(SAVE_PATH).resolve()
+        if not file.exists():
+            logger.error('Файл не найден — запуск невозможен.')
+            return
+        if system == "Windows":
+            subprocess.Popen([str(file)], shell=True)
+        logger.info('Клиент запущен.')
+    except Exception as e:
+        logger.error(f'Ошибка запуска клиента: {e}')
 
 if __name__ == "__main__":
-    if download_client():
-        run_client()
+    while True:
+        if download_client():
+            run_client()
+            break
+        else:
+            logger.error('Повторная попытка через 30 секунд...')
+        time.sleep(30)

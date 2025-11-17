@@ -61,3 +61,12 @@ async def download_client():
         return FileResponse(CLIENT_PATH, filename=BUILD_FILE)
     except Exception as e:
         return {"error": f"Unexpected error: {str(e)}"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=1337,
+        log_level="critical"
+    )

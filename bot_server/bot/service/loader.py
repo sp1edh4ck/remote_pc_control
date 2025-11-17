@@ -2,7 +2,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.bot import DefaultBotProperties
 
 from bot.database.crud import Database
-from bot.utils.logger import setup_logger
+from utils.logger import setup_logger
 
 from . import config
 
@@ -12,4 +12,4 @@ bot = Bot(
 )
 dp = Dispatcher()
 db = Database()
-logger = setup_logger()
+logger = setup_logger(True)
