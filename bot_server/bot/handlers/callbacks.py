@@ -1,10 +1,8 @@
-import json
-
 from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
-from app.bot.keyboards import inline_markups as kb
-from app.routes.websocket import connected_clients
+from bot.keyboards import inline_markups as kb
+from routes.websocket import connected_clients
 
 router = Router()
 

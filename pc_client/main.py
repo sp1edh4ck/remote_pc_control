@@ -1,13 +1,14 @@
 import asyncio
-import platform
 import json
 import os
+import platform
 import signal
 import uuid
 
 import websockets
-from utils.logger import setup_logger
+
 from utils import system
+from utils.logger import setup_logger
 
 logger = setup_logger(log=True)
 

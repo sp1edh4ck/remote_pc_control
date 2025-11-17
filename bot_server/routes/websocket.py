@@ -1,10 +1,11 @@
 import json
+import os
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from app.bot.service import config
-from app.bot.service.loader import bot, db, logger
-from app.bot.utils.async_funcs import on_client_result
+from bot.service import config
+from bot.service.loader import bot, db, logger
+from bot.utils.async_funcs import on_client_result
 
 router = APIRouter()
 connected_clients = {}

@@ -2,10 +2,9 @@ from aiogram import Router
 from aiogram.filters.command import Command
 from aiogram.types import Message
 
-from app.bot.keyboards import inline_markups as kb
-from app.bot.service.loader import bot
-from app.routes.websocket import connected_clients
-from app.bot.service.loader import db
+from bot.keyboards import inline_markups as kb
+from bot.service.loader import bot, db
+from routes.websocket import connected_clients
 
 router = Router()
 

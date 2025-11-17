@@ -1,6 +1,6 @@
 import asyncpg
 
-from app.bot.service import config
+from bot.service import config
 
 
 async def create_pool():

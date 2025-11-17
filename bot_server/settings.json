@@ -1,0 +1,6 @@
+{
+    "build": {
+        "build_dir": "build",
+        "build_file": "pc_client.exe"
+    }
+}

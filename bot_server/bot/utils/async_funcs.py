@@ -1,7 +1,7 @@
 import json
 
-from app.bot.service import config
-from app.bot.service.loader import bot
+from bot.service import config
+from bot.service.loader import bot
 
 
 async def on_client_result(client_id, result_json):
