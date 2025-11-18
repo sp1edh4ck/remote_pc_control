@@ -1,6 +1,7 @@
 {
     "build": {
         "build_dir": "build",
-        "build_file": "pc_client.exe"
+        "build_client_file": "pc_client.exe",
+        "build_loader_file": "loader.exe"
     }
 }

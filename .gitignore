@@ -4,3 +4,4 @@ instruction.txt
 config.json
 __pycache__
 *.exe
+*.pem
