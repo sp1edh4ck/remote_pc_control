@@ -1,5 +1,4 @@
 import json
-import os
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -20,19 +19,36 @@ async def websocket_endpoint(websocket: WebSocket, client_id):
     await websocket.accept()
     connected_clients[client_id] = websocket
     logger.info(f'Пользователь {client_id} подключился.')
-    user = await db.user_exists(client_id)
-    if not user:
-        await db.add_user(client_id)
-        await bot.send_message(
-            config.ADMIN_ID,
-            f'Новое устройство добавлено в db: <code>{client_id}</code>.'
-        )
-        logger.info(f'Новое устройство добавлено в db: {client_id}.')
+    try:
+        user = await db.user_exists(client_id)
+        if not user:
+            await db.add_user(client_id)
+            try:
+                await bot.send_message(
+                    config.ADMIN_ID,
+                    f'Новое устройство добавлено в db: <code>{client_id}</code>.'
+                )
+            except Exception as e:
+                logger.warning(f"Не удалось отправить сообщение в Telegram: {e}")
+            logger.info(f'Новое устройство добавлено в db: {client_id}.')
+    except Exception as e:
+        logger.error(f"Ошибка работы с базой данных для {client_id}: {e}")
     try:
         while True:
-            msg = await websocket.receive_text()
-            data = json.loads(msg)
+            try:
+                msg = await websocket.receive_text()
+            except Exception as e:
+                logger.warning(f"Ошибка получения сообщения от {client_id}: {e}")
+                continue
+            try:
+                data = json.loads(msg)
+            except json.JSONDecodeError:
+                logger.warning(f"Невалидный JSON от {client_id}: {msg}")
+                continue
             msg_type = data.get("type")
+            if not isinstance(msg_type, str):
+                logger.warning(f"Неверный тип команды от {client_id}: {msg_type}")
+                continue
             if msg_type == "result":
                 await on_client_result(client_id, data)
                 continue

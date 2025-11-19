@@ -1,6 +1,7 @@
 import ctypes
 import os
 import platform
+import webbrowser
 
 
 def shutdown():
@@ -25,3 +26,7 @@ def reboot():
 
 def lock():
     ctypes.windll.user32.LockWorkStation()
+
+
+def open_link(url):
+    webbrowser.open(url)

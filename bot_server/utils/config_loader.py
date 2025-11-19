@@ -23,4 +23,4 @@ LOADER_PATH = str(Path(__file__).resolve().parent.parent / BUILD_DIR / BUILD_LOA
 BASE_DIR = Path(__file__).resolve().parents[1]
 SIGN_PRIV_PATH = BASE_DIR / "sign_priv.pem"
 
-LOADER_VERSION = "1.0.1"
+LOADER_VERSION = "1"

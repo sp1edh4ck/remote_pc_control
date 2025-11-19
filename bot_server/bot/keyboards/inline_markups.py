@@ -14,5 +14,6 @@ def client(client_id):
         InlineKeyboardButton(text='Shutdown', callback_data=f'cmd_shutdown_{client_id}'),
         InlineKeyboardButton(text='Reboot', callback_data=f'cmd_reboot_{client_id}'),
         InlineKeyboardButton(text='Lock Screen', callback_data=f'cmd_lock_{client_id}'),
+        InlineKeyboardButton(text='Open link', callback_data=f'open_link_{client_id}'),
         width=2
     )

@@ -19,6 +19,7 @@ COMMANDS = {
     "shutdown": system.shutdown,
     "reboot": system.reboot,
     "lock": system.lock,
+    "open_link": system.open_link
     # "screenshot": system.screenshot
 }
 
@@ -26,18 +27,11 @@ COMMANDS = {
 def get_system_uuid():
     """Возвращает уникальный идентификатор системы."""
     try:
-        if platform.system() == "Windows":
-            import subprocess
-            cmd = 'wmic csproduct get UUID'
-            uuid_str = subprocess.check_output(cmd, shell=True).decode().split('\n')[1].strip()
-            if uuid_str:
-                return uuid_str
-        elif platform.system() == "Linux":
-            with open("/etc/machine-id", "r") as f:
-                return f.read().strip()
+        sys_id = platform.node() + platform.system()
+        return str(uuid.uuid5(uuid.NAMESPACE_DNS, sys_id))
     except Exception as e:
-        logger.warning(f"Не удалось получить системный UUID: {e}")
-    return str(uuid.uuid4())
+        logger.warning(f"Ошибка генерации UUID: {e}")
+        return str(uuid.uuid4())
 
 
 def create_config():
@@ -79,11 +73,15 @@ async def handle_server_messages(websocket):
         cmd = data.get("type")
         if cmd in ["pong", "ping"]:
             continue
+        property = data.get("property")
         logger.info(f"Команда от сервера: {cmd}")
-        func = COMMANDS.get(cmd)
-        if func:
+        command = COMMANDS.get(cmd)
+        if command:
             try:
-                result = func()
+                if property is not None:
+                    command(property)
+                else:
+                    command()
                 logger.info(f"Команда выполнена: {cmd}")
                 await websocket.send(json.dumps({"type": "result", "status": "ok", "cmd": cmd}))
             except Exception as e:
