@@ -80,7 +80,7 @@ def setup_logger(log_to_console=True):
         logger.addHandler(sh)
     return logger
 
-logger = setup_logger(True)
+logger = setup_logger(log=False, files=False)
 
 
 def safe_request(url, timeout = 10):
