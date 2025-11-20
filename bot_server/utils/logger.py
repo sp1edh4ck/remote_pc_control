@@ -14,7 +14,6 @@ def setup_logger(log=True, files=True):
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
-
     if files:
         file_handler = logging.FileHandler(
             f"client_{datetime.now().strftime('%Y%m%d')}.log", encoding="utf-8"

@@ -5,7 +5,7 @@ from bot.database.crud import Database
 from utils.logger import setup_logger
 from . import config
 
-logger = setup_logger(log=False, files=False)
+logger = setup_logger(log=True, files=True)
 
 try:
     bot = Bot(

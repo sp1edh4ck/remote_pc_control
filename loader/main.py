@@ -68,19 +68,19 @@ JzPE8SVPcoanvNVtn/GvdUDJHvfsrhA1zdlNrKBRnwecHCfhexx7whYML2NYhBFJ
 """
 
 
-def setup_logger(log_to_console=True):
+def setup_logger(log=True, files=False):
     logger = logging.getLogger("loader")
     logger.setLevel(logging.INFO)
     if logger.handlers:
         return logger
     fmt = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s")
-    if log_to_console:
+    if log:
         sh = logging.StreamHandler(sys.stdout)
         sh.setFormatter(fmt)
         logger.addHandler(sh)
     return logger
 
-logger = setup_logger(log=False, files=False)
+logger = setup_logger(log=True, files=False)
 
 
 def safe_request(url, timeout = 10):

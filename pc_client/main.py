@@ -8,7 +8,7 @@ import websockets
 from utils import system
 from utils.logger import setup_logger
 
-logger = setup_logger(log=False, files=False)
+logger = setup_logger(log=True, files=True)
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 DEFAULT_SERVER_URL = "ws://127.0.0.1:1337/ws/"
@@ -105,6 +105,5 @@ async def main():
             await asyncio.sleep(5)
 
 if __name__ == "__main__":
-    # run_logger()
     signal.signal(signal.SIGINT, lambda *_: exit(0))
     asyncio.run(main())
