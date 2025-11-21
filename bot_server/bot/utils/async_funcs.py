@@ -12,23 +12,23 @@ async def on_client_result(client_id, result_json):
         try:
             result_json = json.loads(result_json)
         except json.JSONDecodeError:
-            logger.warning(f"⚠ Невалидный JSON от {client_id}: {result_json}")
+            logger.warning(f'({client_id}) Невалидный json: {result_json}')
             return
         except Exception as e:
-            logger.error(f"Ошибка при обработке JSON от {client_id}: {e}")
+            logger.error(f'({client_id}) Ошибка при обработке json: {e}')
             return
     if not isinstance(result_json, dict):
-        logger.warning(f"⚠ Некорректный формат данных от {client_id}: {result_json}")
+        logger.warning(f'({client_id}) Некорректный формат данных: {result_json}')
         return
-    cmd = result_json.get("cmd", "unknown")
+    command = result_json.get("command", "unknown")
     status = result_json.get("status", "unknown")
     message_map = {
-        "ok": f"💚 Команда {cmd} выполнена на {client_id}",
-        "error": f"❌ Ошибка выполнения {cmd} на {client_id}",
-        "unknown": f"⚠ Неизвестная команда {cmd} от {client_id}"
+        "ok": f'({client_id}) Команда {command} выполнена.',
+        "error": f'({client_id}) Ошибка выполнения {command}.',
+        "unknown": f'({client_id}) Неизвестная команда {command}.'
     }
-    msg = message_map.get(status, message_map["unknown"])
+    message = message_map.get(status, message_map["unknown"])
     try:
-        await bot.send_message(config.ADMIN_ID, msg)
+        await bot.send_message(config.ADMIN_ID, message)
     except Exception as e:
-        logger.error(f"Ошибка отправки сообщения админу ({config.ADMIN_ID}): {e}")
+        logger.error(f'Ошибка отправки сообщения администратору ({config.ADMIN_ID}): {e}')

@@ -54,22 +54,37 @@ async def heartbeat(websocket):
     """Периодический пинг для проверки соединения."""
     while True:
         try:
-            await websocket.send(json.dumps({"type": "ping"}))
-            await asyncio.sleep(10)
+            await websocket.send(json.dumps({"command": "ping"}))
+            await asyncio.sleep(30)
         except Exception as e:
             logger.error(f'Heartbeat error: {e}')
             break
 
 
-async def handle_server_messages(websocket):
+async def handle_server_messages(websocket, config):
     async for message in websocket:
         try:
             data = json.loads(message)
+            print(data)
         except json.JSONDecodeError:
             logger.warning(f'Некорректный JSON: {message}')
             continue
         cmd = data.get("type")
-        if cmd in ["pong", "ping"]:
+        if cmd in ["pong", "ping"]: 
+            continue
+        if cmd == "result" and data.get("cmd") == "update_client_id":
+            status = data.get("status")
+            if status == "ok":
+                try:
+                    if "client_id_pending" in config:
+                        config["client_id"] = config.pop("client_id_pending")
+                        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+                            json.dump(config, f, indent=4)
+                        logger.info(f"client_id успешно обновлён локально: {config['client_id']}")
+                except Exception as e:
+                    logger.error(f"Ошибка при записи config.json: {e}")
+            else:
+                logger.warning("Сервер отказался обновлять client_id.")
             continue
         property = data.get("property")
         logger.info(f'Команда от сервера: {cmd}')
@@ -90,15 +105,31 @@ async def handle_server_messages(websocket):
 
 
 async def main():
-    config = create_config()
+    config = await create_config()
+    client_id = config.get("client_id")
+    # pending = config.get("client_id_pending")
     server_url = config["server_url"] + config["client_id"]
     logger.info(f'Подключаюсь к серверу {server_url}')
     while True:
         try:
             async with websockets.connect(server_url) as websocket:
-                logger.info('Соединение установлено с сервером')
-                asyncio.create_task(heartbeat(websocket))
-                await handle_server_messages(websocket)
+                logger.info('Соединение с сервером установлено.')
+                # if pending:
+                #     try:
+                #         await websocket.send(
+                #             json.dumps({
+                #                 "command": "update_client_id",
+                #                 "old_id": client_id,
+                #                 "new_id": pending
+                #             })
+                #         )
+                #     except Exception as e:
+                #         logger.error(f'Ошибка отправки update_client_id: {e}')
+                hb_task = asyncio.create_task(heartbeat(websocket))
+                try:
+                    await handle_server_messages(websocket, config)
+                finally:
+                    hb_task.cancel()
         except Exception as e:
             logger.error('Соединение потеряно.')
             logger.info('Переподключение через 5 секунд...')

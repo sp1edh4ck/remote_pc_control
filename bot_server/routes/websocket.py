@@ -1,6 +1,7 @@
 import json
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
 
 from bot.service import config
 from bot.service.loader import bot, db, logger
@@ -18,7 +19,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id):
     """
     await websocket.accept()
     connected_clients[client_id] = websocket
-    logger.info(f'Пользователь {client_id} подключился.')
+    logger.info(f'({client_id}) Пользователь подключился.')
     try:
         user = await db.user_exists(client_id)
         if not user:
@@ -29,30 +30,36 @@ async def websocket_endpoint(websocket: WebSocket, client_id):
                     f'Новое устройство добавлено в db: <code>{client_id}</code>.'
                 )
             except Exception as e:
-                logger.warning(f"Не удалось отправить сообщение в Telegram: {e}")
+                logger.warning(f'Не удалось отправить сообщение в Telegram: {e}')
             logger.info(f'Новое устройство добавлено в db: {client_id}.')
     except Exception as e:
-        logger.error(f"Ошибка работы с базой данных для {client_id}: {e}")
+        logger.error(f'({client_id}) Ошибка работы с базой данных: {e}')
     try:
         while True:
             try:
-                msg = await websocket.receive_text()
+                message = await websocket.receive_text()
+            except (WebSocketDisconnect, ConnectionClosedOK, ConnectionClosedError):
+                raise WebSocketDisconnect()
             except Exception as e:
-                logger.warning(f"Ошибка получения сообщения от {client_id}: {e}")
-                continue
+                logger.warning(f'({client_id}) Ошибка получения сообщения: {e}')
+                break
             try:
-                data = json.loads(msg)
+                data = json.loads(message)
             except json.JSONDecodeError:
-                logger.warning(f"Невалидный JSON от {client_id}: {msg}")
+                logger.warning(f'({client_id}) Невалидный json: {message}')
                 continue
-            msg_type = data.get("type")
-            if not isinstance(msg_type, str):
-                logger.warning(f"Неверный тип команды от {client_id}: {msg_type}")
+            command = data.get("command")
+            if command == "result":
+                try:
+                    await on_client_result(client_id, data)
+                except Exception as e:
+                    logger.error(f'({client_id}) Ошибка обработки результата: {e}')
                 continue
-            if msg_type == "result":
-                await on_client_result(client_id, data)
-                continue
-            logger.info(f'[{client_id}] [{data.get("type").upper()}].')
+            # ! Тут пишем код под разные команды
+            logger.info(f'({client_id}) {command}.')
     except WebSocketDisconnect:
         logger.info(f'Пользователь {client_id} отключился.')
+    except Exception as e:
+        logger.error(f'({client_id}) Непредвиденная ошибка websocket: {e}')
+    finally:
         connected_clients.pop(client_id, None)
