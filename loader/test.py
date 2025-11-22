@@ -6,7 +6,7 @@
 - запуск клиента в фоне, без окна (win) / setsid (unix)
 - мониторинг и перезапуск клиента при падении
 - одна копия loader (pidfile lock)
-- автообновление loader (через /loader_info и /loader_download)
+- автообновление loader (через /loader_info и /loader_download) — проверка ТОЛЬКО при старте
 """
 
 import base64
@@ -67,7 +67,6 @@ JzPE8SVPcoanvNVtn/GvdUDJHvfsrhA1zdlNrKBRnwecHCfhexx7whYML2NYhBFJ
 -----END PUBLIC KEY-----
 """
 
-
 def setup_logger(log=True, files=True):
     logger = logging.getLogger("bot_server")
     logger.setLevel(logging.INFO)
@@ -89,6 +88,7 @@ def setup_logger(log=True, files=True):
         logger.addHandler(logging.NullHandler())
     return logger
 
+
 logger = setup_logger(log=True, files=False)
 
 
@@ -98,7 +98,7 @@ def safe_request(url, timeout=10):
             resp = requests.get(url, timeout=timeout)
             return resp
         except Exception as e:
-            logger.error(f"Не удалось подключиться к {url} ({attempt}/{MAX_RETRIES}).")
+            logger.error(f"Не удалось подключиться к {url} ({attempt}/{MAX_RETRIES}): {e}")
             time.sleep(RETRY_DELAY)
     return None
 
@@ -510,22 +510,25 @@ def download_loader_update():
 def main_loop():
     if not acquire_pidfile():
         return
-    client_runner = ClientRunner(SAVE_CLIENT_PATH)
     try:
         logger.info("Проверяем обновление loader...")
         try:
             if check_loader_update():
                 logger.info("Найдена новая версия loader. Попытка загрузки и запуска апдейтера.")
                 if download_loader_update():
+                    # Если апдейтер успешно запущен, мы завершаем текущий процесс,
+                    # апдейтер подождёт и заменит файл.
                     return
                 else:
                     logger.error("Не удалось загрузить/установить обновление loader.")
         except Exception as e:
-            logger.debug(f"Ошибка при проверке обновления loader: {e}")
+            logger.debug(f"Ошибка при ONE-TIME проверке обновления loader: {e}")
     except Exception as e:
         logger.debug(f"Неожиданная ошибка при стартовой проверке loader: {e}")
+
     client_runner = ClientRunner(SAVE_CLIENT_PATH)
     try:
+        # CHANGED: Перед стартом мониторинга — проверяем/скачиваем клиент (как раньше)
         try:
             need_download = check_client()
             if need_download:
@@ -536,12 +539,17 @@ def main_loop():
                     return
         except Exception as e:
             logger.error(f"Ошибка при проверке/скачивании клиента: {e}")
+
         client_runner.start()
+
+        # Основной цикл теперь — только мониторинг состояния клиента и обновление клиента (не loader)
         while True:
             try:
                 info = get_client_info()
                 if info:
                     server_hash = info["hash"]
+                    server_sig = info.get("signature")
+                    # если файл существует — проверяем хэш и при несоответствии — обновляем
                     if Path(SAVE_CLIENT_PATH).exists():
                         local_hash = compute_file_hash(SAVE_CLIENT_PATH)
                         if local_hash != server_hash:
@@ -553,17 +561,19 @@ def main_loop():
                                 client_runner.start()
                                 logger.info("Клиент обновлён и перезапущен.")
                             else:
-                                logger.error("Не удалось обновить клиента.")
+                                logger.error("Не удалось обновить клиента. Попытка перезапустить старую версию.")
                                 client_runner = ClientRunner(SAVE_CLIENT_PATH)
                                 client_runner.start()
                     else:
-                        logger.warning("Клиент отсутствует локально. Пробую загрузить.")
+                        # клиент исчез — пробуем скачать и запустить
+                        logger.warning("Клиент отсутствует локально — пробуем загрузить.")
                         if download_client():
-                            logger.info("Клиент загружен. Запускаю мониторинг.")
+                            logger.info("Клиент загружен — запускаю мониторинг.")
                             client_runner = ClientRunner(SAVE_CLIENT_PATH)
                             client_runner.start()
                         else:
                             logger.error("Не удалось загрузить клиента. Повторим позже.")
+                # CHANGED: УДАЛЁН повторный вызов check_loader_update() здесь — проверяем loader ТОЛЬКО при старте
             except Exception as e:
                 logger.error(f"Ошибка в основном цикле: {e}")
             time.sleep(CHECK_INTERVAL)
@@ -574,11 +584,12 @@ def main_loop():
             pass
         release_pidfile()
 
+
 if __name__ == "__main__":
     try:
         main_loop()
     except KeyboardInterrupt:
-        logger.info("Принудительное выключение.")
+        logger.info("Прерывание по Ctrl-C")
     except Exception as e:
         logger.error(f"Непредвиденная ошибка в loader: {e}")
     finally:

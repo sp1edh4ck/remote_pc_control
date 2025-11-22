@@ -49,7 +49,8 @@ async def websocket_endpoint(websocket: WebSocket, client_id):
                 logger.warning(f'({client_id}) Невалидный json: {message}')
                 continue
             command = data.get("command")
-            if command == "result":
+            status = data.get("status")
+            if status == "ok":
                 try:
                     await on_client_result(client_id, data)
                 except Exception as e:

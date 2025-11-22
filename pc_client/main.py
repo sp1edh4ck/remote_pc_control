@@ -8,7 +8,7 @@ import websockets
 from utils import system
 from utils.logger import setup_logger
 
-logger = setup_logger(log=True, files=True)
+logger = setup_logger(log=True, files=False)
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 DEFAULT_SERVER_URL = "ws://127.0.0.1:1337/ws/"
@@ -69,8 +69,8 @@ async def handle_server_messages(websocket, config):
         except json.JSONDecodeError:
             logger.warning(f'Некорректный JSON: {message}')
             continue
-        cmd = data.get("type")
-        if cmd in ["pong", "ping"]: 
+        cmd = data.get("command")
+        if cmd in ["pong", "ping"]:
             continue
         if cmd == "result" and data.get("cmd") == "update_client_id":
             status = data.get("status")
@@ -96,35 +96,23 @@ async def handle_server_messages(websocket, config):
                 else:
                     command()
                 logger.info(f'Команда выполнена: {cmd}')
-                await websocket.send(json.dumps({"type": "result", "status": "ok", "cmd": cmd}))
+                await websocket.send(json.dumps({"command": cmd, "status": "ok"}))
             except Exception as e:
                 logger.error(f'Ошибка выполнения команды {cmd}: {e}')
-                await websocket.send(json.dumps({"type": "result", "status": "error", "cmd": cmd}))
+                await websocket.send(json.dumps({"command": cmd, "status": "error"}))
         else:
             logger.warning(f'Неизвестная команда: {cmd}')
 
 
 async def main():
-    config = await create_config()
+    config = create_config()
     client_id = config.get("client_id")
-    # pending = config.get("client_id_pending")
     server_url = config["server_url"] + config["client_id"]
     logger.info(f'Подключаюсь к серверу {server_url}')
     while True:
         try:
             async with websockets.connect(server_url) as websocket:
                 logger.info('Соединение с сервером установлено.')
-                # if pending:
-                #     try:
-                #         await websocket.send(
-                #             json.dumps({
-                #                 "command": "update_client_id",
-                #                 "old_id": client_id,
-                #                 "new_id": pending
-                #             })
-                #         )
-                #     except Exception as e:
-                #         logger.error(f'Ошибка отправки update_client_id: {e}')
                 hb_task = asyncio.create_task(heartbeat(websocket))
                 try:
                     await handle_server_messages(websocket, config)

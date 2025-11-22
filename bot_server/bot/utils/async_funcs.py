@@ -23,9 +23,9 @@ async def on_client_result(client_id, result_json):
     command = result_json.get("command", "unknown")
     status = result_json.get("status", "unknown")
     message_map = {
-        "ok": f'({client_id}) Команда {command} выполнена.',
-        "error": f'({client_id}) Ошибка выполнения {command}.',
-        "unknown": f'({client_id}) Неизвестная команда {command}.'
+        "ok": f'Команда "{command}" выполнена на ({client_id}).',
+        "error": f'({client_id}) Ошибка выполнения "{command}".',
+        "unknown": f'({client_id}) Неизвестная команда "{command}".'
     }
     message = message_map.get(status, message_map["unknown"])
     try:

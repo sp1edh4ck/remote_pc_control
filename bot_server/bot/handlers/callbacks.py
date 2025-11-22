@@ -29,12 +29,12 @@ async def execute_command(callback: CallbackQuery):
     client_id = parts[2]
     client = connected_clients.get(client_id)
     if not client:
-        return await callback.answer("❌ ПК не подключен", show_alert=True)
+        return await callback.answer("ПК не подключен", show_alert=True)
     try:
-        await client.send_json({"type": cmd})
-        await callback.answer(f"✅ Команда {cmd} отправлена на {client_id}")
+        await client.send_json({"command": cmd})
+        await callback.answer(f'Команда "{cmd}" отправлена на ({client_id})')
     except Exception as e:
-        await callback.answer(f"❌ Ошибка: {e}", show_alert=True)
+        await callback.answer(f'Ошибка: {e}', show_alert=True)
 
 
 @router.callback_query(F.data.startswith("open_link_"))
@@ -57,9 +57,9 @@ async def check_user_profile(message: Message, state: FSMContext):
     link = data["link"]
     client = connected_clients.get(client_id)
     if not client:
-        return await message.answer("❌ ПК не подключен", show_alert=True)
+        return await message.answer('ПК не подключен', show_alert=True)
     try:
-        await client.send_json({"type": "open_link", "property": link})
-        await message.answer(f"✅ Команда open_link отправлена на {client_id}")
+        await client.send_json({"command": "open_link", "property": link})
+        await message.answer(f'Команда "open_link" отправлена на ({client_id})')
     except Exception as e:
-        await message.answer(f"❌ Ошибка: {e}", show_alert=True)
+        await message.answer(f'Ошибка: {e}', show_alert=True)
